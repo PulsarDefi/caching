@@ -2,13 +2,17 @@
 name = "caching"
 version = "0.1.0"
 description = ""
-authors = ["dynalz <git@pulsar.finance>"]
 license = "MIT"
 readme = "README.md"
+packages = [{ include = "caching" }]
+authors = ["dynalz <git@pulsar.finance>"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
 
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+pytest = "^8.3.5"
 
 [build-system]
 requires = ["poetry-core"]
