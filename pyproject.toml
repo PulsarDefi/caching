@@ -7,12 +7,21 @@ readme = "README.md"
 packages = [{ include = "caching" }]
 authors = ["dynalz <git@pulsar.finance>"]
 
+[tool.poetry.scripts]
+shell = "scripts.shell:shell"
+
 [tool.poetry.dependencies]
 python = "^3.11"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
 pytest = "^8.3.5"
+ipython = "^9.1.0"
+pytest-asyncio = "^0.26.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
 
 [build-system]
 requires = ["poetry-core"]

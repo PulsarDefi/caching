@@ -4,7 +4,9 @@ import asyncio
 import functools
 import threading
 from collections import defaultdict
-from typing import Any, Callable, TypeVar, DefaultDict, cast
+from typing import Any, Callable, TypeVar, DefaultDict, TypeAlias, Union, cast
+
+Number: TypeAlias = Union[int, float]
 
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -14,7 +16,7 @@ _SYNC_LOCKS: DefaultDict[int, DefaultDict[str, threading.Lock]] = defaultdict(la
 _ASYNC_LOCKS: DefaultDict[int, DefaultDict[str, asyncio.Lock]] = defaultdict(lambda: defaultdict(asyncio.Lock))
 
 
-def fetch_from_cache(function_id: int, cache_key: str, ttl: int) -> tuple[float, Any] | None:
+def fetch_from_cache(function_id: int, cache_key: str, ttl: Number) -> tuple[float, Any] | None:
     if function_id not in _CACHE:
         return None
     if entry := _CACHE[function_id].get(cache_key):
@@ -34,7 +36,7 @@ def cache_result(function_id: int, cache_key: str, result: Any):
     _CACHE[function_id][cache_key] = (time.time(), result)
 
 
-def async_decorator(function: F, ttl: int) -> F:
+def async_decorator(function: F, ttl: Number) -> F:
     function_id = id(function)
 
     @functools.wraps(function)
@@ -55,7 +57,7 @@ def async_decorator(function: F, ttl: int) -> F:
     return cast(F, async_wrapper)
 
 
-def sync_decorator(function: F, ttl: int) -> F:
+def sync_decorator(function: F, ttl: Number) -> F:
     function_id = id(function)
 
     @functools.wraps(function)
@@ -76,7 +78,7 @@ def sync_decorator(function: F, ttl: int) -> F:
     return cast(F, sync_wrapper)
 
 
-def cached(ttl: int = 300, never_die: bool = False) -> Callable[[F], F]:
+def cache(ttl: Number = 300, never_die: bool = False) -> Callable[[F], F]:
     """
     A decorator that caches function results based on function id and arguments.
     Only allows one entry to the main function, making subsequent calls with the same arguments
@@ -93,11 +95,6 @@ def cached(ttl: int = 300, never_die: bool = False) -> Callable[[F], F]:
     """
 
     def decorator(function: F) -> F:
-        function_id = id(function)
-
-        if function_id not in _CACHE:
-            _CACHE[function_id] = {}
-
         if inspect.iscoroutinefunction(function):
             return async_decorator(function, ttl)
         return sync_decorator(function, ttl)
