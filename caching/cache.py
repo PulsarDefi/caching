@@ -25,6 +25,6 @@ def cache(ttl: Number = 300, never_die: bool = False) -> Callable[[F], F]:
     def decorator(function: F) -> F:
         if inspect.iscoroutinefunction(function):
             return async_decorator(function, ttl)
-        return sync_decorator(function, ttl)
+        return sync_decorator(function, ttl, never_die)
 
     return decorator
