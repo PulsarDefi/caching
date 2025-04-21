@@ -13,7 +13,7 @@ class CacheBucket:
         cls._CACHE[function_id][cache_key] = (time.time(), result)
 
     @classmethod
-    def get(cls, function_id: int, key: str, ttl: Number):
+    def get(cls, function_id: int, key: str, ttl: Number) -> None | tuple[float, Any]:
         if function_id not in cls._CACHE:
             return None
         if entry := cls._CACHE[function_id].get(key):
@@ -21,6 +21,17 @@ class CacheBucket:
             if time.time() < timestamp + ttl:
                 return entry
         return None
+
+    @classmethod
+    def is_cache_expired(cls, function_id: int, key: str, ttl: Number) -> bool:
+        if function_id not in cls._CACHE:
+            return True
+        if key not in cls._CACHE[function_id]:
+            return True
+
+        entry = cls._CACHE[function_id][key]
+        timestamp, _ = entry
+        return time.time() > timestamp + ttl
 
     @classmethod
     def clear(cls):

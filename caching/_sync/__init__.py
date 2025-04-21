@@ -1,20 +1,21 @@
-import threading
 import functools
-from collections import defaultdict
-from typing import DefaultDict, Any, cast
+from typing import Any, cast
 
 from caching.types import Number, F
 from caching.bucket import CacheBucket
+from caching._sync.lock import _SYNC_LOCKS
+from caching._sync.features.never_die import register_never_die_function
 
-_SYNC_LOCKS: DefaultDict[int, DefaultDict[str, threading.Lock]] = defaultdict(lambda: defaultdict(threading.Lock))
 
-
-def sync_decorator(function: F, ttl: Number) -> F:
+def sync_decorator(function: F, ttl: Number, never_die: bool = False) -> F:
     function_id = id(function)
 
     @functools.wraps(function)
     def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         cache_key = CacheBucket.create_cache_key(*args, **kwargs)
+
+        if never_die:
+            register_never_die_function(function, ttl, args, kwargs)
 
         if cache_entry := CacheBucket.get(function_id, cache_key, ttl):
             return cache_entry[1]
