@@ -24,7 +24,6 @@ def sync_decorator(function: F, ttl: Number, never_die: bool = False) -> F:
             if cache_entry := CacheBucket.get(function_id, cache_key, ttl):
                 return cache_entry[1]
 
-            print(f"[NORMAL_CACHING] {function.__name__} with args {args} and kwargs {kwargs}")
             result = function(*args, **kwargs)
             CacheBucket.set(function_id, cache_key, result)
             return result
