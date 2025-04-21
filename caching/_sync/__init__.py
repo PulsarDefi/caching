@@ -4,10 +4,11 @@ from typing import Any, cast
 from caching.types import Number, F
 from caching.bucket import CacheBucket
 from caching._sync.lock import _SYNC_LOCKS
-from caching._sync.features.never_die import register_never_die_function
 
 
 def sync_decorator(function: F, ttl: Number, never_die: bool = False) -> F:
+    from caching.features.never_die import register_never_die_function
+
     function_id = id(function)
 
     @functools.wraps(function)

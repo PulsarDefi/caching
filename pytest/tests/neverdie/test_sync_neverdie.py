@@ -1,7 +1,7 @@
 import time
 from caching.cache import cache
 
-TTL = 0.2
+TTL = 0.1
 
 
 def test_neverdie_vs_regular():
@@ -14,18 +14,17 @@ def test_neverdie_vs_regular():
 
     @cache(ttl=TTL, never_die=True)
     def neverdie_fn() -> int:
-        print("neverdie_fn called")
         nonlocal neverdie_counter
         neverdie_counter += 1
         return neverdie_counter
 
     @cache(ttl=TTL, never_die=False)
     def regular_fn() -> int:
-        print("regular_fn called")
         nonlocal regular_counter
         regular_counter += 1
         return regular_counter
 
+    # First call initializes the cache
     regular_fn()
     neverdie_fn()
 

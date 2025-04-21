@@ -1,20 +1,22 @@
-import asyncio
 import functools
-from collections import defaultdict
-from typing import DefaultDict, Any, cast
+from typing import Any, cast
 
 from caching.types import Number, F
 from caching.bucket import CacheBucket
+from caching._async.lock import _ASYNC_LOCKS
 
-_ASYNC_LOCKS: DefaultDict[int, DefaultDict[str, asyncio.Lock]] = defaultdict(lambda: defaultdict(asyncio.Lock))
 
+def async_decorator(function: F, ttl: Number, never_die: bool = False) -> F:
+    from caching.features.never_die import register_never_die_function
 
-def async_decorator(function: F, ttl: Number) -> F:
     function_id = id(function)
 
     @functools.wraps(function)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         cache_key = CacheBucket.create_cache_key(*args, **kwargs)
+
+        if never_die:
+            register_never_die_function(function, ttl, args, kwargs)
 
         if cache_entry := CacheBucket.get(function_id, cache_key, ttl):
             return cache_entry[1]
