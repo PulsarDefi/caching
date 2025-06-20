@@ -15,11 +15,11 @@ A simple and robust caching library for Python functions, supporting both synchr
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/caching.git
+git clone https://github.com/PulsarDefi/caching.git
 cd caching
 
 # Install the package
-pip install -e .
+poetry install
 ```
 
 ## Usage
@@ -103,7 +103,7 @@ updated_user = get_user_data(123)
 
 ## Testing
 
-Run the test scripts to see the features in action:
+Run the test scripts
 
 ```bash
 python -m pytest
