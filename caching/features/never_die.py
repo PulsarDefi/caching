@@ -13,6 +13,7 @@ from caching.types import Number
 from caching.bucket import CacheBucket
 from caching._sync.lock import _SYNC_LOCKS
 from caching._async.lock import _ASYNC_LOCKS
+from caching.utils.functions import get_function_id
 
 
 _NEVER_DIE_THREAD: threading.Thread | None = None
@@ -30,9 +31,9 @@ class NeverDieCacheEntry:
     kwargs: dict
     loop: AbstractEventLoop | None
 
-    @property
-    def id(self) -> int:
-        return id(self.function)
+    @functools.cached_property
+    def id(self) -> str:
+        return get_function_id(self.function)
 
     @functools.cached_property
     def cache_key(self) -> str:

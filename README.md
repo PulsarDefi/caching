@@ -9,6 +9,7 @@ A simple and robust caching library for Python functions, supporting both synchr
 - Thread-safe locking to prevent duplicate calculations
 - Configurable Time-To-Live (TTL) for cached items
 - "Never Die" mode for functions that should keep cache refreshed automatically
+- Skip cache functionality to force fresh function execution while updating cache
 
 ## Installation
 
@@ -69,12 +70,43 @@ def critical_operation(user_id):
 - If backend services go down temporarily, the last successful result is still available
 - Perfect for critical operations where latency must be minimized
 
+### Skip Cache
+
+The `skip_cache` feature allows you to bypass reading from cache while still updating it with fresh results:
+
+```python
+@cache(ttl=300)
+def get_user_data(user_id):
+    # Expensive operation to fetch user data
+    return fetch_from_database(user_id)
+
+# Normal call - uses cache if available
+user = get_user_data(123)
+# Force fresh execution while updating cache
+fresh_user = get_user_data(123, skip_cache=True)
+# Next normal call will get the updated cached value
+updated_user = get_user_data(123)
+```
+
+**How Skip Cache Works:**
+
+1. When `skip_cache=True` is passed, the function bypasses reading from cache
+2. The function executes normally and returns fresh results
+3. The fresh result is stored in the cache, updating any existing cached value
+4. Subsequent calls without `skip_cache=True` will use the updated cached value
+5. The TTL timer resets from when the cache last was updated
+
+**Benefits:**
+
+- Force refresh of potentially stale data while keeping cache warm
+- Ensuring fresh data for critical operations while maintaining cache for other calls
+
 ## Testing
 
-Run the test script to see the `never_die` feature in action:
+Run the test scripts to see the features in action:
 
 ```bash
-python -m caching.test_never_die
+python -m pytest
 ```
 
 ## License

@@ -9,20 +9,20 @@ def test_neverdie_vs_regular():
     Compare never_die and regular caching side by side to demonstrate
     the key difference in behavior.
     """
-    neverdie_counter = 0
     regular_counter = 0
-
-    @cache(ttl=TTL, never_die=True)
-    def neverdie_fn() -> int:
-        nonlocal neverdie_counter
-        neverdie_counter += 1
-        return neverdie_counter
+    neverdie_counter = 0
 
     @cache(ttl=TTL, never_die=False)
     def regular_fn() -> int:
         nonlocal regular_counter
         regular_counter += 1
         return regular_counter
+
+    @cache(ttl=TTL, never_die=True)
+    def neverdie_fn() -> int:
+        nonlocal neverdie_counter
+        neverdie_counter += 1
+        return neverdie_counter
 
     # First call initializes the cache
     regular_fn()
