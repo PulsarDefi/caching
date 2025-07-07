@@ -68,3 +68,49 @@ async def test_separate_cache_keys(function_with_cache):
 
     assert result1 == result1_again
     assert result2 == result2_again
+
+
+@pytest.fixture()
+def function_with_cache_using_ignore():
+
+    @cache(ttl=TTL, ignore=("b",))
+    async def async_cached_function(a: int, b: int) -> int:
+        return a + b
+
+    return async_cached_function
+
+
+@pytest.mark.asyncio
+async def test_ignore_arg_param(function_with_cache_using_ignore):
+    result1 = await function_with_cache_using_ignore(a=1, b=2)
+    result2 = await function_with_cache_using_ignore(a=1, b=3)
+
+    assert result1 == result2
+
+    result1 = await function_with_cache_using_ignore(2, 2)
+    result2 = await function_with_cache_using_ignore(2, 3)
+
+    assert result1 == result2
+
+    result1 = await function_with_cache_using_ignore(b=2, a=3)
+    result2 = await function_with_cache_using_ignore(a=3, b=5)
+
+    assert result1 == result2
+
+
+@pytest.fixture()
+def function_with_cache_using_lambda():
+
+    @cache(ttl=TTL, key_func=lambda args, kwargs: (kwargs["a"], kwargs["b"]))
+    async def async_cached_function(a: int, b: int, c: int) -> int:
+        return a + b + c
+
+    return async_cached_function
+
+
+@pytest.mark.asyncio
+async def test_lambda_params(function_with_cache_using_lambda):
+    result1 = await function_with_cache_using_lambda(a=1, b=2, c=3)
+    result2 = await function_with_cache_using_lambda(a=1, b=2, c=4)
+
+    assert result1 == result2
