@@ -19,15 +19,15 @@ def sync_decorator(function: F, ttl: Number, never_die: bool = False) -> F:
 
         if never_die:
             register_never_die_function(function, ttl, args, kwargs)
-        if cache_entry := CacheBucket.get(function_id, cache_key, ttl, skip_cache):
-            return cache_entry[1]
+        if cache_entry := CacheBucket.get(function_id, cache_key, skip_cache):
+            return cache_entry.result
 
         with _SYNC_LOCKS[function_id][cache_key]:
-            if cache_entry := CacheBucket.get(function_id, cache_key, ttl, skip_cache):
-                return cache_entry[1]
+            if cache_entry := CacheBucket.get(function_id, cache_key, skip_cache):
+                return cache_entry.result
 
             result = function(*args, **kwargs)
-            CacheBucket.set(function_id, cache_key, result)
+            CacheBucket.set(function_id, cache_key, result, ttl)
             return result
 
     return cast(F, sync_wrapper)
