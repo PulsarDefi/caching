@@ -66,20 +66,22 @@ class CacheBucket:
 
     @staticmethod
     def create_cache_key(
-        function: Callable,
-        key_func: Callable[[tuple, dict], Hashable] | None,
+        function_signature: Signature,
+        cache_key_func: Callable[[tuple, dict], Hashable] | None,
         ignore_fields: tuple[str, ...],
         *args: Any,
         **kwargs: Any,
     ) -> str:
-        if key_func:
-            cache_key = key_func(args, kwargs)
-            assert isinstance(cache_key, Hashable)
+        if cache_key_func:
+            cache_key = cache_key_func(args, kwargs)
+            if not isinstance(cache_key, Hashable):
+                raise Exception(
+                    "Cache key function must be return an hashable cache key - be carefull with mutable types (list, dict, set) and non built-in types"
+                )
 
             return str(hash(cache_key))
 
-        sig = inspect.signature(function)  # to map args→param names
-        bound = sig.bind_partial(*args, **kwargs)
+        bound = function_signature.bind_partial(*args, **kwargs)
         bound.apply_defaults()
         items = tuple((name, value) for name, value in bound.arguments.items() if name not in ignore_fields)
         return str(hash(items))

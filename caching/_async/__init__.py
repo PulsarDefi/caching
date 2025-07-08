@@ -11,7 +11,7 @@ def async_decorator(
     function: F,
     ttl: Number,
     never_die: bool = False,
-    key_func: Callable[[tuple, dict], Hashable] | None = None,
+    cache_key_func: Callable[[tuple, dict], Hashable] | None = None,
     ignore_fields: tuple[str, ...] = (),
 ) -> F:
     from caching.features.never_die import register_never_die_function
@@ -21,10 +21,12 @@ def async_decorator(
     @functools.wraps(function)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         skip_cache = kwargs.pop("skip_cache", False)
-        cache_key = CacheBucket.create_cache_key(function, key_func, ignore_fields, *args, **kwargs)
+
+        function_signature = inspect.signature(function)  # to map args→param names
+        cache_key = CacheBucket.create_cache_key(function_signature, cache_key_func, ignore_fields, *args, **kwargs)
 
         if never_die:
-            register_never_die_function(function, ttl, args, kwargs, key_func, ignore_fields)
+            register_never_die_function(function, function_signature, ttl, args, kwargs, cache_key_func, ignore_fields)
         if cache_entry := CacheBucket.get(function_id, cache_key, skip_cache):
             return cache_entry.result
 
