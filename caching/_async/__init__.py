@@ -1,4 +1,5 @@
 import functools
+import inspect
 from typing import Any, cast, Callable, Hashable
 
 from caching.types import Number, F

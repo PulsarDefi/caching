@@ -1,5 +1,5 @@
-import inspect
 import time
+from inspect import Signature
 from dataclasses import dataclass
 from collections import defaultdict
 from typing import Any, DefaultDict, Callable, Hashable

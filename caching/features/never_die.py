@@ -1,8 +1,8 @@
 import time
 import asyncio
-import inspect
 import threading
 import functools
+from inspect import Signature
 from typing import Callable, Hashable
 from dataclasses import dataclass
 from asyncio import AbstractEventLoop

@@ -1,4 +1,5 @@
 import functools
+import inspect
 from typing import Any, cast, Callable, Hashable
 
 from caching.types import Number, F
@@ -21,7 +22,9 @@ def sync_decorator(
     @functools.wraps(function)
     def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         skip_cache = kwargs.pop("skip_cache", False)
-        cache_key = CacheBucket.create_cache_key(function, cache_key_func, ignore_fields, *args, **kwargs)
+
+        function_signature = inspect.signature(function)  # to map args→param names
+        cache_key = CacheBucket.create_cache_key(function_signature, cache_key_func, ignore_fields, *args, **kwargs)
 
         if never_die:
             register_never_die_function(function, ttl, args, kwargs, cache_key_func, ignore_fields)
