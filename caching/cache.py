@@ -42,8 +42,8 @@ def cache(
         - Makes subsequent calls wait for the first call to complete
     """
 
-    if key_func is not None and ignore_fields:
-        raise Exception(f"Either {key_func} or {ignore_fields} should be provided")
+    if key_func and ignore_fields:
+        raise Exception(f"Either {key_func} or {ignore_fields} should be provided, but not both")
 
     _start_cache_clear_thread()
 
