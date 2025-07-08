@@ -35,11 +35,11 @@ def expensive_calculation(a, b):
     # Some expensive operation
     return a + b
 
-# Cache with custom TTL (1 hour)
+# Async cache with custom TTL (1 hour)
 @cache(ttl=3600)
-def another_calculation(a, b, c):
-    # Some expensive operation
-    return a * b * c
+async def another_calculation(url):
+    # Some expensive IO call
+    return requests.get(url).json()
 ```
 
 ### Never Die Cache
