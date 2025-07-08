@@ -42,6 +42,9 @@ def cache(
         - Makes subsequent calls wait for the first call to complete
     """
 
+    if key_func is not None and ignore_fields:
+        raise Exception(f"Either {key_func} or {ignore_fields} should be provided")
+
     _start_cache_clear_thread()
 
     def decorator(function: F) -> F:

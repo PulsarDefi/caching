@@ -14,9 +14,6 @@ def async_decorator(
     key_func: Callable[[tuple, dict], Hashable] | None = None,
     ignore_fields: tuple[str, ...] = (),
 ) -> F:
-    if key_func is not None and ignore_fields:
-        raise Exception(f"Either {key_func} or {ignore_fields} should be provided")
-
     from caching.features.never_die import register_never_die_function
 
     function_id = get_function_id(function)
