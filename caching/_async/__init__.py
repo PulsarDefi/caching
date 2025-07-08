@@ -1,5 +1,4 @@
 import functools
-import inspect
 from typing import Any, cast, Callable, Hashable
 
 from caching.types import Number, F
@@ -12,31 +11,23 @@ def async_decorator(
     function: F,
     ttl: Number,
     never_die: bool = False,
-    key_func: Callable[[tuple, dict], str] | None = None,
-    ignore: tuple[str, ...] = (),
+    key_func: Callable[[tuple, dict], Hashable] | None = None,
+    ignore_fields: tuple[str, ...] = (),
 ) -> F:
+    if key_func is not None and ignore_fields:
+        raise Exception(f"Either {key_func} or {ignore_fields} should be provided")
+
     from caching.features.never_die import register_never_die_function
 
     function_id = get_function_id(function)
-    sig = inspect.signature(function)  # to map args→param names
-
-    def _default_key(a: tuple, kw: dict) -> str:
-        bound = sig.bind_partial(*a, **kw)
-        bound.apply_defaults()
-        items = tuple((name, value) for name, value in bound.arguments.items() if name not in ignore)
-        return str(hash(items))
-
-    make_key = key_func or _default_key
 
     @functools.wraps(function)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         skip_cache = kwargs.pop("skip_cache", False)
-        cache_key = make_key(args, kwargs)
-        if not isinstance(cache_key, str):
-            cache_key = str(hash(cache_key))
+        cache_key = CacheBucket.create_cache_key(function, key_func, ignore_fields, *args, **kwargs)
 
         if never_die:
-            register_never_die_function(function, ttl, args, kwargs)
+            register_never_die_function(function, ttl, args, kwargs, key_func, ignore_fields)
         if cache_entry := CacheBucket.get(function_id, cache_key, skip_cache):
             return cache_entry.result
 

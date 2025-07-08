@@ -1,7 +1,8 @@
+import inspect
 import time
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Any, DefaultDict
+from typing import Any, DefaultDict, Callable, Hashable
 
 from caching.types import Number
 
@@ -64,7 +65,21 @@ class CacheBucket:
         cls._CACHE.clear()
 
     @staticmethod
-    def create_cache_key(*args: Any, **kwargs: Any) -> str:
-        # Sort kwargs to ensure consistent key
-        sorted_kwargs = sorted(kwargs.items())
-        return str(hash((args, tuple(sorted_kwargs))))
+    def create_cache_key(
+        function: Callable,
+        key_func: Callable[[tuple, dict], Hashable] | None,
+        ignore_fields: tuple[str, ...],
+        *args: Any,
+        **kwargs: Any,
+    ) -> str:
+        if key_func:
+            cache_key = key_func(args, kwargs)
+            assert isinstance(cache_key, Hashable)
+
+            return str(hash(cache_key))
+
+        sig = inspect.signature(function)  # to map args→param names
+        bound = sig.bind_partial(*args, **kwargs)
+        bound.apply_defaults()
+        items = tuple((name, value) for name, value in bound.arguments.items() if name not in ignore_fields)
+        return str(hash(items))

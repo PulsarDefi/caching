@@ -1,7 +1,6 @@
 import inspect
-from typing import Callable, Hashable
 import threading
-from typing import Callable
+from typing import Callable, Hashable
 
 from caching.types import Number, F
 from caching._sync import sync_decorator
@@ -26,7 +25,7 @@ def cache(
     ttl: Number = 300,
     never_die: bool = False,
     key_func: Callable[[tuple, dict], Hashable] | None = None,
-    ignore: tuple[str, ...] = (),
+    ignore_fields: tuple[str, ...] = (),
 ) -> Callable[[F], F]:
     """
     A decorator that caches function results based on function id and arguments.
@@ -47,7 +46,7 @@ def cache(
 
     def decorator(function: F) -> F:
         if inspect.iscoroutinefunction(function):
-            return async_decorator(function, ttl, never_die, key_func, ignore)
-        return sync_decorator(function, ttl, never_die)
+            return async_decorator(function, ttl, never_die, key_func, ignore_fields)
+        return sync_decorator(function, ttl, never_die, key_func, ignore_fields)
 
     return decorator
