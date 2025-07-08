@@ -45,7 +45,7 @@ def cache(
     """
 
     if cache_key_func and ignore_fields:
-        raise Exception("Either cache_key_func or ignore_fields should be provided, but not both")
+        raise Exception("Either cache_key_func or ignore_fields can be provided, but not both")
 
     _start_cache_clear_thread()
 
