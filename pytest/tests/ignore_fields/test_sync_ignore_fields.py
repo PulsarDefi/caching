@@ -1,6 +1,7 @@
 import pytest
 from caching.cache import cache
-from itertools import count
+
+TTL = 1
 
 
 @pytest.fixture()
