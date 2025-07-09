@@ -1,7 +1,8 @@
 import time
+from inspect import Signature
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Any, DefaultDict
+from typing import Any, DefaultDict, Callable, Hashable
 
 from caching.types import Number
 
@@ -64,7 +65,23 @@ class CacheBucket:
         cls._CACHE.clear()
 
     @staticmethod
-    def create_cache_key(*args: Any, **kwargs: Any) -> str:
-        # Sort kwargs to ensure consistent key
-        sorted_kwargs = sorted(kwargs.items())
-        return str(hash((args, tuple(sorted_kwargs))))
+    def create_cache_key(
+        function_signature: Signature,
+        cache_key_func: Callable[[tuple, dict], Hashable] | None,
+        ignore_fields: tuple[str, ...],
+        *args: Any,
+        **kwargs: Any,
+    ) -> str:
+        if not cache_key_func:
+            bound = function_signature.bind_partial(*args, **kwargs)
+            bound.apply_defaults()
+            items = tuple((name, value) for name, value in bound.arguments.items() if name not in ignore_fields)
+            return str(hash(items))
+
+        cache_key = cache_key_func(args, kwargs)
+        try:
+            return str(hash(cache_key))
+        except TypeError:
+            raise Exception(
+                "Cache key function must be return an hashable cache key - be carefull with mutable types (list, dict, set) and non built-in types"
+            )

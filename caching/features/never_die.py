@@ -1,9 +1,9 @@
 import time
 import asyncio
-import inspect
 import threading
 import functools
-from typing import Callable
+import inspect
+from typing import Callable, Hashable
 from dataclasses import dataclass
 from asyncio import AbstractEventLoop
 from concurrent.futures import Future as ConcurrentFuture
@@ -29,6 +29,8 @@ class NeverDieCacheEntry:
     ttl: Number
     args: tuple
     kwargs: dict
+    cache_key_func: Callable
+    ignore_fields: tuple[str, ...]
     loop: AbstractEventLoop | None
 
     @functools.cached_property
@@ -37,7 +39,10 @@ class NeverDieCacheEntry:
 
     @functools.cached_property
     def cache_key(self) -> str:
-        return CacheBucket.create_cache_key(*self.args, **self.kwargs)
+        function_signature = inspect.signature(self.function)
+        return CacheBucket.create_cache_key(
+            function_signature, self.cache_key_func, self.ignore_fields, *self.args, **self.kwargs
+        )
 
     def __eq__(self, other: "NeverDieCacheEntry") -> bool:
         if not isinstance(other, NeverDieCacheEntry):
@@ -130,11 +135,20 @@ def _start_never_die_thread():
         _NEVER_DIE_THREAD.start()
 
 
-def register_never_die_function(function: Callable, ttl: Number, args: tuple, kwargs: dict) -> None:
+def register_never_die_function(
+    function: Callable,
+    ttl: Number,
+    args: tuple,
+    kwargs: dict,
+    cache_key_func: Callable[[tuple, dict], Hashable] | None,
+    ignore_fields: tuple[str, ...],
+) -> None:
     """Register a function for never_die cache refreshing"""
     is_async = inspect.iscoroutinefunction(function)
 
-    entry = NeverDieCacheEntry(function, ttl, args, kwargs, asyncio.get_event_loop() if is_async else None)
+    entry = NeverDieCacheEntry(
+        function, ttl, args, kwargs, cache_key_func, ignore_fields, asyncio.get_event_loop() if is_async else None
+    )
 
     with _NEVER_DIE_LOCK:
         if entry not in _NEVER_DIE_REGISTRY:
