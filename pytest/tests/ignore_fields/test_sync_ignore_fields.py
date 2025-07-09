@@ -2,9 +2,6 @@ import pytest
 from caching.cache import cache
 from itertools import count
 
-TTL = 1
-_global_counter = count()
-
 
 @pytest.fixture()
 def function_with_cache_using_ignore():

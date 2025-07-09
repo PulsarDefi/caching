@@ -18,12 +18,11 @@ def sync_decorator(
     from caching.features.never_die import register_never_die_function
 
     function_id = get_function_id(function)
+    function_signature = inspect.signature(function)  # to map args→param names
 
     @functools.wraps(function)
     def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         skip_cache = kwargs.pop("skip_cache", False)
-
-        function_signature = inspect.signature(function)  # to map args→param names
         cache_key = CacheBucket.create_cache_key(function_signature, cache_key_func, ignore_fields, *args, **kwargs)
 
         if never_die:
