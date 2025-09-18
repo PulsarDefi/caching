@@ -1,14 +1,9 @@
-from typing import Any, Callable, Coroutine, Hashable, ParamSpec, TypeAlias, TypedDict, TypeVar, Union
+from typing import Any, Callable, Hashable, TypeAlias, TypedDict, TypeVar, Union
 
 Number: TypeAlias = Union[int, float]
+CacheKeyFunction: TypeAlias = Callable[[tuple, dict], Hashable]
 
 F = TypeVar("F", bound=Callable[..., Any])
-P = ParamSpec("P")
-T = TypeVar("T")
-
-Decorator: TypeAlias = Callable[[Callable[P, T]], Callable[P, T]]
-CacheKeyFunction: TypeAlias = Callable[[tuple, dict], Hashable]
-AsyncCallable: TypeAlias = Callable[P, Coroutine[Any, Any, T]]
 
 
 class CacheKwargs(TypedDict, total=False):
