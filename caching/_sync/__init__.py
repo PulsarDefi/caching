@@ -35,7 +35,7 @@ def sync_decorator(
                 return cache_entry.result
 
             result = function(*args, **kwargs)
-            CacheBucket.set(function_id, cache_key, result, ttl)
+            CacheBucket.set(function_id, cache_key, result, ttl, never_die=never_die)
             return result
 
     return cast(F, sync_wrapper)

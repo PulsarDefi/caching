@@ -63,6 +63,7 @@ def _run_sync_function_and_cache(entry: NeverDieCacheEntry):
             result = entry.function(*entry.args, **entry.kwargs)
             CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl, never_die=True)
         except BaseException:
+            CacheBucket.revive(entry.id, entry.cache_key)
             logger.debug(
                 f"Exception caching {entry.function.__qualname__}, reviving previous entry",
                 exc_info=True,
@@ -76,6 +77,7 @@ async def _run_async_function_and_cache(entry: NeverDieCacheEntry):
             result = await entry.function(*entry.args, **entry.kwargs)
             CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl, never_die=True)
         except BaseException:
+            CacheBucket.revive(entry.id, entry.cache_key)
             logger.debug(
                 f"Exception caching {entry.function.__qualname__}, reviving previous entry",
                 exc_info=True,
@@ -109,6 +111,7 @@ def _refresh_never_die_caches():
             for entry in list(_NEVER_DIE_REGISTRY):
                 if not CacheBucket.is_cache_expired(entry.id, entry.cache_key):
                     continue
+
                 if _cache_is_being_set(entry):
                     continue
 

@@ -23,6 +23,12 @@ class CacheEntry:
     def __post_init__(self):
         self.cached_at = self.time()
         self.expires_at = self.cached_at + self.ttl
+        self.max_revive_ttl = self.ttl * 10
+
+    def revive(self):
+        # Exponential backoff
+        self.ttl = min(self.ttl * 1.2, self.max_revive_ttl)
+        self.expires_at = self.time() + self.ttl
 
     def is_expired(self) -> bool:
         return self.time() > self.expires_at
@@ -48,15 +54,17 @@ class CacheBucket:
     _CACHE: DefaultDict[str, dict[str, CacheEntry]] = defaultdict(lambda: dict())
 
     @classmethod
-    def set(
-        cls,
-        function_id: str,
-        cache_key: str,
-        result: Any,
-        ttl: Number,
-        never_die: bool = False,
-    ):
+    def set(cls, function_id: str, cache_key: str, result: Any, ttl: Number, never_die: bool = False):
         cls._CACHE[function_id][cache_key] = CacheEntry(result, ttl, never_die)
+
+    @classmethod
+    def revive(cls, function_id: str, cache_key: str):
+        if function_id not in cls._CACHE:
+            return
+
+        if entry := cls._CACHE[function_id].get(cache_key):
+            entry.revive()
+            return
 
     @classmethod
     def get(cls, function_id: str, cache_key: str, skip_cache: bool) -> CacheEntry | None:
