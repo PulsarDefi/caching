@@ -1,6 +1,6 @@
 import time
 from itertools import count
-from typing import Unpack
+from typing_extensions import Unpack
 
 from caching.cache import cache
 from caching.types import CacheKwargs

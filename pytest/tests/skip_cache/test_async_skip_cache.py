@@ -1,6 +1,6 @@
 import asyncio
 from itertools import count
-from typing import Unpack
+from typing_extensions import Unpack
 
 import pytest
 from caching.cache import cache
