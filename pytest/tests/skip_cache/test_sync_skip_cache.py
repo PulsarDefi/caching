@@ -1,6 +1,9 @@
 import time
 from itertools import count
+from typing import Unpack
+
 from caching.cache import cache
+from caching.types import CacheKwargs
 
 TTL = 0.1
 
@@ -9,7 +12,7 @@ def test_skip_cache_bypasses_getting_from_cache():
     counter = count()
 
     @cache(ttl=TTL)
-    def cached_function():
+    def cached_function(**_: Unpack[CacheKwargs]):
         return next(counter)
 
     result1 = cached_function()
@@ -27,7 +30,7 @@ def test_skip_cache_with_function_arguments():
     counter = count()
 
     @cache(ttl=TTL)
-    def cached_function(arg):
+    def cached_function(arg, **_: Unpack[CacheKwargs]):
         return f"{arg}_{next(counter)}"
 
     result1 = cached_function("test")
@@ -48,7 +51,7 @@ def test_skip_cache_respects_ttl_for_setting():
     counter = count()
 
     @cache(ttl=TTL)
-    def cached_function():
+    def cached_function(**_: Unpack[CacheKwargs]):
         return next(counter)
 
     result1 = cached_function(skip_cache=True)

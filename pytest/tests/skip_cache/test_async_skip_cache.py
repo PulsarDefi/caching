@@ -1,7 +1,10 @@
-import pytest
 import asyncio
 from itertools import count
+from typing import Unpack
+
+import pytest
 from caching.cache import cache
+from caching.types import CacheKwargs
 
 TTL = 0.1
 
@@ -11,7 +14,7 @@ async def test_skip_cache_bypasses_getting_from_cache():
     counter = count()
 
     @cache(ttl=TTL)
-    async def cached_function():
+    async def cached_function(**_: Unpack[CacheKwargs]):
         return next(counter)
 
     result1 = await cached_function()  # 0
@@ -30,7 +33,7 @@ async def test_skip_cache_with_function_arguments():
     counter = count()
 
     @cache(ttl=TTL)
-    async def cached_function(arg):
+    async def cached_function(arg: str, **_: Unpack[CacheKwargs]) -> str:
         return f"{arg}_{next(counter)}"
 
     result1 = await cached_function("test")  # "test_0"
@@ -52,7 +55,7 @@ async def test_skip_cache_respects_ttl_for_setting():
     counter = count()
 
     @cache(ttl=TTL)
-    async def cached_function():
+    async def cached_function(**_: Unpack[CacheKwargs]):
         return next(counter)
 
     result1 = await cached_function(skip_cache=True)  # 0 (executes, sets cache)

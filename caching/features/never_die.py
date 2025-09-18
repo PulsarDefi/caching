@@ -1,20 +1,19 @@
-import time
 import asyncio
-import threading
 import functools
 import inspect
-from typing import Callable, Hashable
-from dataclasses import dataclass
+import threading
+import time
 from asyncio import AbstractEventLoop
 from concurrent.futures import Future as ConcurrentFuture
+from dataclasses import dataclass
+from typing import Any, Callable
 
-from caching.config import logger
-from caching.types import Number
-from caching.bucket import CacheBucket
-from caching._sync.lock import _SYNC_LOCKS
 from caching._async.lock import _ASYNC_LOCKS
+from caching._sync.lock import _SYNC_LOCKS
+from caching.bucket import CacheBucket
+from caching.config import logger
+from caching.types import CacheKeyFunction, Number
 from caching.utils.functions import get_function_id
-
 
 _NEVER_DIE_THREAD: threading.Thread | None = None
 _NEVER_DIE_LOCK: threading.Lock = threading.Lock()
@@ -25,11 +24,11 @@ _NEVER_DIE_CACHE_FUTURES: dict[str, ConcurrentFuture] = {}
 
 @dataclass
 class NeverDieCacheEntry:
-    function: Callable
+    function: Callable[..., Any]
     ttl: Number
     args: tuple
     kwargs: dict
-    cache_key_func: Callable
+    cache_key_func: CacheKeyFunction | None
     ignore_fields: tuple[str, ...]
     loop: AbstractEventLoop | None
 
@@ -41,10 +40,14 @@ class NeverDieCacheEntry:
     def cache_key(self) -> str:
         function_signature = inspect.signature(self.function)
         return CacheBucket.create_cache_key(
-            function_signature, self.cache_key_func, self.ignore_fields, *self.args, **self.kwargs
+            function_signature,
+            self.cache_key_func,
+            self.ignore_fields,
+            self.args,
+            self.kwargs,
         )
 
-    def __eq__(self, other: "NeverDieCacheEntry") -> bool:
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, NeverDieCacheEntry):
             return False
         return self.id == other.id and self.cache_key == other.cache_key
@@ -57,10 +60,13 @@ def _run_sync_function_and_cache(entry: NeverDieCacheEntry):
     """Run a function and cache its result"""
     with _SYNC_LOCKS[entry.id][entry.cache_key]:
         try:
-            result = entry.function(*entry.args, *entry.kwargs)
-            CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl)
-        except:
-            logger.debug(f"Exception caching {entry.function.__qualname__}", exc_info=True)
+            result = entry.function(*entry.args, **entry.kwargs)
+            CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl, never_die=True)
+        except BaseException:
+            logger.debug(
+                f"Exception caching {entry.function.__qualname__}, reviving previous entry",
+                exc_info=True,
+            )
 
 
 async def _run_async_function_and_cache(entry: NeverDieCacheEntry):
@@ -68,9 +74,12 @@ async def _run_async_function_and_cache(entry: NeverDieCacheEntry):
     async with _ASYNC_LOCKS[entry.id][entry.cache_key]:
         try:
             result = await entry.function(*entry.args, **entry.kwargs)
-            CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl)
-        except:
-            logger.debug(f"Exception caching {entry.function.__qualname__}", exc_info=True)
+            CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl, never_die=True)
+        except BaseException:
+            logger.debug(
+                f"Exception caching {entry.function.__qualname__}, reviving previous entry",
+                exc_info=True,
+            )
 
 
 def _cache_is_being_set(entry: NeverDieCacheEntry) -> bool:
@@ -103,22 +112,28 @@ def _refresh_never_die_caches():
                 if _cache_is_being_set(entry):
                     continue
 
-                if entry.loop:  # async
-                    if entry.loop.is_closed():
-                        logger.debug(f"Loop is closed for {entry.function.__qualname__}, skipping future creation")
-                        continue
-                    try:
-                        coroutine = _run_async_function_and_cache(entry)
-                        future = asyncio.run_coroutine_threadsafe(coroutine, entry.loop)
-                    except RuntimeError:
-                        coroutine.close()
-                        logger.debug(f"Loop is closed for {entry.function.__qualname__}, skipping future creation")
-                        continue
-                    _NEVER_DIE_CACHE_FUTURES[entry.cache_key] = future
+                if not entry.loop:  # sync
+                    thread = threading.Thread(target=_run_sync_function_and_cache, args=(entry,), daemon=True)
+                    thread.start()
+                    _NEVER_DIE_CACHE_THREADS[entry.cache_key] = thread
                     continue
-                thread = threading.Thread(target=_run_sync_function_and_cache, args=(entry,), daemon=True)
-                thread.start()
-                _NEVER_DIE_CACHE_THREADS[entry.cache_key] = thread
+
+                if entry.loop.is_closed():
+                    logger.debug(f"Loop is closed for {entry.function.__qualname__}, skipping future creation")
+                    continue
+
+                # Doesn't actually run, just creates a coroutine
+                coroutine = _run_async_function_and_cache(entry)
+
+                try:
+                    future = asyncio.run_coroutine_threadsafe(coroutine, entry.loop)
+                except RuntimeError:
+                    coroutine.close()
+                    logger.debug(f"Loop is closed for {entry.function.__qualname__}, skipping future creation")
+                    continue
+
+                _NEVER_DIE_CACHE_FUTURES[entry.cache_key] = future
+
         finally:
             time.sleep(0.1)
             _clear_dead_futures()
@@ -136,18 +151,24 @@ def _start_never_die_thread():
 
 
 def register_never_die_function(
-    function: Callable,
+    function: Callable[..., Any],
     ttl: Number,
     args: tuple,
     kwargs: dict,
-    cache_key_func: Callable[[tuple, dict], Hashable] | None,
+    cache_key_func: CacheKeyFunction | None,
     ignore_fields: tuple[str, ...],
 ) -> None:
     """Register a function for never_die cache refreshing"""
     is_async = inspect.iscoroutinefunction(function)
 
     entry = NeverDieCacheEntry(
-        function, ttl, args, kwargs, cache_key_func, ignore_fields, asyncio.get_event_loop() if is_async else None
+        function,
+        ttl,
+        args,
+        kwargs,
+        cache_key_func,
+        ignore_fields,
+        asyncio.get_event_loop() if is_async else None,
     )
 
     with _NEVER_DIE_LOCK:

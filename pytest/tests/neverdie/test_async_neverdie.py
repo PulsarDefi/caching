@@ -1,4 +1,5 @@
 import asyncio
+
 import pytest
 from caching.cache import cache
 
@@ -30,8 +31,8 @@ async def test_neverdie_vs_regular():
     await regular_fn()
     await neverdie_fn()
 
-    # Wait for TTL * 3 to allow background refreshes to occur
-    wait_time = TTL * 3.5
+    # Wait for some time to allow background refreshes to occur
+    wait_time = TTL * 4
     await asyncio.sleep(wait_time)
 
     # The never_die counter should have been incremented by background refreshes
@@ -43,3 +44,26 @@ async def test_neverdie_vs_regular():
     # Both functions should return their current counter values
     assert await neverdie_fn() == neverdie_counter
     assert await regular_fn() == regular_counter
+
+
+@pytest.mark.asyncio
+async def test_neverdie_exception():
+    neverdie_counter = 0
+
+    @cache(ttl=TTL, never_die=True)
+    async def neverdie_fn() -> int:
+        nonlocal neverdie_counter
+        neverdie_counter += 1
+        if neverdie_counter > 2:
+            raise Exception
+        return neverdie_counter
+
+    # First call initializes the cache
+    await neverdie_fn()
+
+    # Wait some time to allow background refreshes to occur
+    await asyncio.sleep(TTL * 4)
+
+    # At this point, the function got stuck at returning just 3
+    assert await neverdie_fn() == 2
+    assert neverdie_counter > 2
