@@ -24,8 +24,8 @@ class CacheEntry:
         self.cached_at = self.time()
         self.expires_at = self.cached_at + self.ttl
 
-    def is_expired(self, offset: int = 0) -> bool:
-        return self.time() > self.expires_at + offset
+    def is_expired(self) -> bool:
+        return self.time() > self.expires_at
 
 
 def clear_expired_cached_items():
@@ -34,7 +34,9 @@ def clear_expired_cached_items():
         try:
             for cache in CacheBucket._CACHE.values():
                 for key, entry in list(cache.items()):
-                    if entry.is_expired(10):
+                    if entry.never_die:
+                        continue
+                    if entry.is_expired():
                         del cache[key]
         except Exception:
             pass
