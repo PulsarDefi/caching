@@ -1,11 +1,11 @@
 import inspect
 import threading
-from typing import Callable, Hashable
+from typing import Callable
 
-from caching.types import Number, F
-from caching._sync import sync_decorator
 from caching._async import async_decorator
-from caching.bucket import clear_expired_cached_items
+from caching._sync import sync_decorator
+from caching.bucket import CacheBucket
+from caching.types import CacheKeyFunction, F, Number
 
 _CACHE_CLEAR_THREAD: threading.Thread | None = None
 _CACHE_CLEAR_LOCK: threading.Lock = threading.Lock()
@@ -17,14 +17,14 @@ def _start_cache_clear_thread():
     with _CACHE_CLEAR_LOCK:
         if _CACHE_CLEAR_THREAD and _CACHE_CLEAR_THREAD.is_alive():
             return
-        _CACHE_CLEAR_THREAD = threading.Thread(target=clear_expired_cached_items, daemon=True)
+        _CACHE_CLEAR_THREAD = threading.Thread(target=CacheBucket.clear_expired_cached_items, daemon=True)
         _CACHE_CLEAR_THREAD.start()
 
 
 def cache(
     ttl: Number = 300,
     never_die: bool = False,
-    cache_key_func: Callable[[tuple, dict], Hashable] | None = None,
+    cache_key_func: CacheKeyFunction | None = None,
     ignore_fields: tuple[str, ...] = (),
 ) -> Callable[[F], F]:
     """
@@ -49,7 +49,7 @@ def cache(
 
     _start_cache_clear_thread()
 
-    def decorator(function: F) -> F:
+    def decorator(function):
         if inspect.iscoroutinefunction(function):
             return async_decorator(function, ttl, never_die, cache_key_func, ignore_fields)
         return sync_decorator(function, ttl, never_die, cache_key_func, ignore_fields)

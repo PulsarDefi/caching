@@ -1,7 +1,7 @@
-from caching.types import F
+from typing import Any, Callable
 
 
-def get_function_id(function: F) -> str:
+def get_function_id(function: Callable[..., Any]) -> str:
     """
     Returns the unique identifier for the function, which is a combination of its module and qualified name.
     """

@@ -1,4 +1,5 @@
 import time
+
 from caching.cache import cache
 
 TTL = 0.1
@@ -28,8 +29,8 @@ def test_neverdie_vs_regular():
     regular_fn()
     neverdie_fn()
 
-    # Wait for TTL * 3 to allow background refreshes to occur
-    wait_time = TTL * 3.5
+    # Wait for some time to allow background refreshes to occur
+    wait_time = TTL * 4
     time.sleep(wait_time)
 
     # The never_die counter should have been incremented by background refreshes
@@ -41,3 +42,25 @@ def test_neverdie_vs_regular():
     # Both functions should return their current counter values
     assert neverdie_fn() == neverdie_counter
     assert regular_fn() == regular_counter
+
+
+def test_neverdie_exception():
+    neverdie_counter = 0
+
+    @cache(ttl=TTL, never_die=True)
+    def neverdie_fn() -> int:
+        nonlocal neverdie_counter
+        neverdie_counter += 1
+        if neverdie_counter > 2:
+            raise Exception
+        return neverdie_counter
+
+    # First call initializes the cache
+    neverdie_fn()
+
+    # Wait some time to allow background refreshes to occur
+    time.sleep(TTL * 4)
+
+    # At this point, the function got stuck at returning just 3
+    assert neverdie_fn() == 2
+    assert neverdie_counter > 2
