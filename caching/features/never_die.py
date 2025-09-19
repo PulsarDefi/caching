@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from caching._async.lock import _ASYNC_LOCKS
 from caching._sync.lock import _SYNC_LOCKS
-from caching.bucket import CacheBucket
+from caching.bucket import CacheBucket, CacheEntry
 from caching.config import logger
 from caching.types import CacheKeyFunction, Number
 from caching.utils.functions import get_function_id
@@ -31,6 +31,10 @@ class NeverDieCacheEntry:
     cache_key_func: CacheKeyFunction | None
     ignore_fields: tuple[str, ...]
     loop: AbstractEventLoop | None
+
+    def __post_init__(self):
+        self._backoff: float = 1
+        self._expires_at: float = CacheEntry.time() + self.ttl
 
     @functools.cached_property
     def id(self) -> str:
@@ -55,15 +59,28 @@ class NeverDieCacheEntry:
     def __hash__(self) -> int:
         return hash((self.id, self.cache_key))
 
+    def is_expired(self) -> bool:
+        return CacheEntry.time() > self._expires_at
+
+    def reset(self):
+        self._backoff = 1
+        self._expires_at = CacheEntry.time() + self.ttl
+
+    def revive(self):
+        self._backoff = min(self._backoff * 1.25, 10)
+        self._expires_at = CacheEntry.time() + self.ttl * self._backoff
+
 
 def _run_sync_function_and_cache(entry: NeverDieCacheEntry):
     """Run a function and cache its result"""
     with _SYNC_LOCKS[entry.id][entry.cache_key]:
         try:
             result = entry.function(*entry.args, **entry.kwargs)
-            CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl, never_die=True)
+            CacheBucket.set(entry.id, entry.cache_key, result, None)
+            entry.reset()
+
         except BaseException:
-            CacheBucket.revive(entry.id, entry.cache_key)
+            entry.revive()
             logger.debug(
                 f"Exception caching {entry.function.__qualname__}, reviving previous entry",
                 exc_info=True,
@@ -75,9 +92,11 @@ async def _run_async_function_and_cache(entry: NeverDieCacheEntry):
     async with _ASYNC_LOCKS[entry.id][entry.cache_key]:
         try:
             result = await entry.function(*entry.args, **entry.kwargs)
-            CacheBucket.set(entry.id, entry.cache_key, result, entry.ttl, never_die=True)
+            CacheBucket.set(entry.id, entry.cache_key, result, None)
+            entry.reset()
+
         except BaseException:
-            CacheBucket.revive(entry.id, entry.cache_key)
+            entry.revive()
             logger.debug(
                 f"Exception caching {entry.function.__qualname__}, reviving previous entry",
                 exc_info=True,
@@ -109,7 +128,7 @@ def _refresh_never_die_caches():
     while True:
         try:
             for entry in list(_NEVER_DIE_REGISTRY):
-                if not CacheBucket.is_cache_expired(entry.id, entry.cache_key):
+                if not entry.is_expired():
                     continue
 
                 if _cache_is_being_set(entry):

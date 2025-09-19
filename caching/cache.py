@@ -4,7 +4,7 @@ from typing import Callable
 
 from caching._async import async_decorator
 from caching._sync import sync_decorator
-from caching.bucket import clear_expired_cached_items
+from caching.bucket import CacheBucket
 from caching.types import CacheKeyFunction, F, Number
 
 _CACHE_CLEAR_THREAD: threading.Thread | None = None
@@ -17,7 +17,7 @@ def _start_cache_clear_thread():
     with _CACHE_CLEAR_LOCK:
         if _CACHE_CLEAR_THREAD and _CACHE_CLEAR_THREAD.is_alive():
             return
-        _CACHE_CLEAR_THREAD = threading.Thread(target=clear_expired_cached_items, daemon=True)
+        _CACHE_CLEAR_THREAD = threading.Thread(target=CacheBucket.clear_expired_cached_items, daemon=True)
         _CACHE_CLEAR_THREAD.start()
 
 

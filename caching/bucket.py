@@ -1,8 +1,7 @@
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 from inspect import Signature
-from typing import Any, DefaultDict
+from typing import Any
 
 from caching.types import CacheKeyFunction, Number
 
@@ -10,8 +9,7 @@ from caching.types import CacheKeyFunction, Number
 @dataclass
 class CacheEntry:
     result: Any
-    ttl: float
-    never_die: bool
+    ttl: float | None
 
     cached_at: float = field(init=False)
     expires_at: float = field(init=False)
@@ -22,70 +20,48 @@ class CacheEntry:
 
     def __post_init__(self):
         self.cached_at = self.time()
-        self.expires_at = self.cached_at + self.ttl
-        self.max_revive_ttl = self.ttl * 10
-
-    def revive(self):
-        # Exponential backoff
-        self.ttl = min(self.ttl * 1.2, self.max_revive_ttl)
-        self.expires_at = self.time() + self.ttl
+        self.expires_at = 0 if self.ttl is None else self.cached_at + self.ttl
 
     def is_expired(self) -> bool:
+        if self.ttl is None:
+            return False
         return self.time() > self.expires_at
 
 
-def clear_expired_cached_items():
-    """Clear expired cached items from the cache bucket."""
-    while 1:
-        try:
-            for cache in CacheBucket._CACHE.values():
-                for key, entry in list(cache.items()):
-                    if entry.never_die:
-                        continue
-                    if entry.is_expired():
-                        del cache[key]
-        except Exception:
-            pass
-        finally:
-            time.sleep(10)
-
-
 class CacheBucket:
-    _CACHE: DefaultDict[str, dict[str, CacheEntry]] = defaultdict(lambda: dict())
+    _CACHE: dict[tuple[str, str], CacheEntry] = {}
 
     @classmethod
-    def set(cls, function_id: str, cache_key: str, result: Any, ttl: Number, never_die: bool = False):
-        cls._CACHE[function_id][cache_key] = CacheEntry(result, ttl, never_die)
+    def clear_expired_cached_items(cls):
+        """Clear expired cached items from the cache bucket."""
+        while True:
+            try:
+                for key, entry in list(cls._CACHE.items()):
+                    if entry.is_expired():
+                        del cls._CACHE[key]
+            except Exception:
+                pass
+            finally:
+                time.sleep(10)
 
     @classmethod
-    def revive(cls, function_id: str, cache_key: str):
-        if function_id not in cls._CACHE:
-            return
-
-        if entry := cls._CACHE[function_id].get(cache_key):
-            entry.revive()
-            return
+    def set(cls, function_id: str, cache_key: str, result: Any, ttl: Number | None):
+        cls._CACHE[function_id, cache_key] = CacheEntry(result, ttl)
 
     @classmethod
     def get(cls, function_id: str, cache_key: str, skip_cache: bool) -> CacheEntry | None:
         if skip_cache:
             return None
-        if function_id not in cls._CACHE:
-            return None
-        if entry := cls._CACHE[function_id].get(cache_key):
-            if entry.never_die or not entry.is_expired():
+        if entry := cls._CACHE.get((function_id, cache_key)):
+            if not entry.is_expired():
                 return entry
         return None
 
     @classmethod
     def is_cache_expired(cls, function_id: str, cache_key: str) -> bool:
-        if function_id not in cls._CACHE:
-            return True
-        if cache_key not in cls._CACHE[function_id]:
-            return True
-
-        entry = cls._CACHE[function_id][cache_key]
-        return entry.is_expired()
+        if entry := cls._CACHE.get((function_id, cache_key)):
+            return entry.is_expired()
+        return True
 
     @classmethod
     def clear(cls):

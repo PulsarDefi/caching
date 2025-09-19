@@ -27,6 +27,7 @@ def sync_decorator(
 
         if never_die:
             register_never_die_function(function, ttl, args, kwargs, cache_key_func, ignore_fields)
+
         if cache_entry := CacheBucket.get(function_id, cache_key, skip_cache):
             return cache_entry.result
 
@@ -35,7 +36,7 @@ def sync_decorator(
                 return cache_entry.result
 
             result = function(*args, **kwargs)
-            CacheBucket.set(function_id, cache_key, result, ttl, never_die=never_die)
+            CacheBucket.set(function_id, cache_key, result, None if never_die else ttl)
             return result
 
     return cast(F, sync_wrapper)
