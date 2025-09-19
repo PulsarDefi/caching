@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from caching._async.lock import _ASYNC_LOCKS
 from caching._sync.lock import _SYNC_LOCKS
-from caching.bucket import CacheBucket, CacheEntry
+from caching.bucket import CacheBucket
 from caching.config import logger
 from caching.types import CacheKeyFunction, Number
 from caching.utils.functions import get_function_id
@@ -34,7 +34,7 @@ class NeverDieCacheEntry:
 
     def __post_init__(self):
         self._backoff: float = 1
-        self._expires_at: float = CacheEntry.time() + self.ttl
+        self._expires_at: float = time.monotonic() + self.ttl
 
     @functools.cached_property
     def id(self) -> str:
@@ -60,15 +60,15 @@ class NeverDieCacheEntry:
         return hash((self.id, self.cache_key))
 
     def is_expired(self) -> bool:
-        return CacheEntry.time() > self._expires_at
+        return time.monotonic() > self._expires_at
 
     def reset(self):
         self._backoff = 1
-        self._expires_at = CacheEntry.time() + self.ttl
+        self._expires_at = time.monotonic() + self.ttl
 
     def revive(self):
         self._backoff = min(self._backoff * 1.25, 10)
-        self._expires_at = CacheEntry.time() + self.ttl * self._backoff
+        self._expires_at = time.monotonic() + self.ttl * self._backoff
 
 
 def _run_sync_function_and_cache(entry: NeverDieCacheEntry):
